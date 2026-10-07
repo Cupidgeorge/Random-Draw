@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classmate Spinning Wheel Studio</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @keyframes pulse-slow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 3s infinite ease-in-out;
+        }
+        /* Custom scrollbar for participant list */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.8);
+        }
+    </style>
+</head>
+<body class="h-full bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950 text-slate-100 flex flex-col min-h-screen">
+
+    <header class="w-full py-5 px-6 md:px-12 flex items-center justify-between border-b border-white/10 bg-slate-900/50 backdrop-blur-md sticky top-0 z-40">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-500 to-violet-500 flex items-center justify-center shadow-lg shadow-pink-500/30">
+                <i class="fa-solid fa-dharmachakra text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white">WheelDraw Pro</h1>
+                <p class="text-xs text-indigo-300">Interactive Classmate Spinning Wheel</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="resetToDefaults()" class="text-xs bg-white/10 hover:bg-white/20 transition px-3.5 py-2 rounded-xl font-medium text-slate-200 flex items-center space-x-2 border border-white/10 shadow-sm">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Reset A, B, C, D</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 py-8 max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Left Column: Participants Management -->
+        <section class="lg:col-span-4 bg-slate-900/70 backdrop-blur-xl rounded-2xl p-6 border border-slate-800 shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-users text-pink-400"></i>
+                    <span>Participants (<span id="participant-count">4</span>)</span>
+                </h2>
+                <span class="text-xs bg-indigo-500/20 text-indigo-300 font-semibold px-2.5 py-1 rounded-full border border-indigo-500/30">Active Wheel</span>
+            </div>
+
+            <!-- Add Participant Form -->
+            <form id="add-form" onsubmit="addParticipant(event)" class="flex gap-2 mb-4">
+                <input type="text" id="new-participant-input" placeholder="Enter classmate name..." 
+                    class="flex-grow bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition">
+                <button type="submit" class="bg-gradient-to-r from-pink-500 to-violet-600 hover:from-pink-600 hover:to-violet-700 text-white font-medium px-4 py-2.5 rounded-xl text-sm transition shadow-lg shadow-pink-500/20 flex items-center space-x-1">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Add</span>
+                </button>
+            </form>
+
+            <!-- Participant List Container -->
+            <div class="flex-grow overflow-y-auto max-h-[280px] pr-1 space-y-2 mb-4" id="participants-list">
+                <!-- Injected via JavaScript -->
+            </div>
+
+            <!-- Quick Controls -->
+            <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-800">
+                <button onclick="removeAllParticipants()" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-semibold py-2.5 px-3 rounded-xl transition flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Clear All</span>
+                </button>
+                <button onclick="fillDefaults()" class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-semibold py-2.5 px-3 rounded-xl transition flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Load A, B, C, D</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Right Column: Spinning Wheel Arena & History -->
+        <section class="lg:col-span-8 flex flex-col space-y-6">
+            
+            <!-- Wheel Arena Box -->
+            <div class="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-slate-800 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+                
+                <!-- Background ambient glow -->
+                <div class="absolute -top-32 -right-32 w-72 h-72 bg-pink-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -bottom-32 -left-32 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <!-- Mode & Settings Toolbar -->
+                <div class="flex flex-wrap items-center justify-between w-full max-w-lg mb-6 gap-3 z-10">
+                    <div class="flex bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+                        <button onclick="setDrawMode('single')" id="mode-single" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-pink-600 text-white transition shadow">Keep Winner</button>
+                        <button onclick="setDrawMode('elimination')" id="mode-elimination" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">Eliminate Winner</button>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 text-xs text-slate-300">
+                        <span class="text-slate-400 font-medium">Speed:</span>
+                        <select id="spin-speed" class="bg-transparent text-white font-semibold focus:outline-none cursor-pointer">
+                            <option value="fast" class="bg-slate-900">⚡ Fast (3s)</option>
+                            <option value="normal" selected class="bg-slate-900">✨ Normal (5s)</option>
+                            <option value="epic" class="bg-slate-900">🏆 Epic (8s)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Canvas Spinning Wheel Container -->
+                <div class="relative flex items-center justify-center my-2 z-10">
+                    <!-- Pointer / Arrow on top -->
+                    <div class="absolute -top-3 left-1/2 -translate-x-1/2 z-30 drop-shadow-lg text-pink-400 text-3xl">
+                        <i class="fa-solid fa-caret-down filter drop-shadow"></i>
+                    </div>
+
+                    <!-- Wheel Canvas Wrapper with outer ring border -->
+                    <div class="p-3 bg-slate-950/90 rounded-full border-4 border-slate-700/80 shadow-2xl relative">
+                        <canvas id="wheel-canvas" width="360" height="360" class="rounded-full cursor-pointer block max-w-full h-auto" onclick="startSpin()"></canvas>
+                        
+                        <!-- Center Spin Button Hub -->
+                        <button onclick="startSpin()" id="spin-hub-btn" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-gradient-to-tr from-pink-600 to-violet-600 hover:from-pink-500 hover:to-violet-500 text-white font-black text-sm tracking-wider uppercase shadow-xl border-4 border-slate-900 flex flex-col items-center justify-center transition transform hover:scale-105 active:scale-95 z-20">
+                            <span>SPIN</span>
+                            <i class="fa-solid fa-play text-[10px] mt-0.5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Action Button Below -->
+                <button id="main-spin-btn" onclick="startSpin()" class="mt-6 w-full max-w-md bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-bold py-3.5 px-8 rounded-2xl shadow-xl shadow-pink-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0 text-base flex items-center justify-center space-x-2 z-10">
+                    <i class="fa-solid fa-dharmachakra"></i>
+                    <span>Spin the Wheel Now!</span>
+                </button>
+            </div>
+
+            <!-- History Log Section -->
+            <div class="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-6 border border-slate-800 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i>
+                        <span>Recent Spin History</span>
+                    </h3>
+                    <button onclick="clearHistory()" class="text-xs text-slate-400 hover:text-red-400 transition font-medium">Clear History</button>
+                </div>
+                <div id="history-container" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    <div class="text-xs text-slate-500 text-center py-4 italic">No spins recorded yet. Give the wheel a spin!</div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <div id="winner-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl text-center transform scale-95 transition-all duration-300 relative overflow-hidden" id="winner-modal-content">
+            
+            <!-- Glow effect -->
+            <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-48 bg-pink-500/20 rounded-full blur-2xl pointer-events-none"></div>
+
+            <div class="w-20 h-20 bg-gradient-to-tr from-pink-500 to-violet-500 rounded-2xl mx-auto flex items-center justify-center text-white text-3xl shadow-xl shadow-pink-500/40 mb-6 animate-pulse-slow">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+
+            <span class="text-xs font-bold uppercase tracking-widest text-pink-400 mb-1 block">Winner Selected!</span>
+            <h2 id="modal-winner-name" class="text-4xl font-black text-white mb-3 tracking-tight">Classmate A</h2>
+            <p class="text-sm text-slate-300 mb-8">Selected fair & square by the spinning wheel.</p>
+
+            <div class="flex space-x-3">
+                <button onclick="closeModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 px-4 rounded-xl transition text-sm border border-slate-700">
+                    Close
+                </button>
+                <button onclick="closeModalAndSpin()" class="flex-1 bg-gradient-to-r from-pink-500 to-violet-600 hover:from-pink-600 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition text-sm shadow-lg shadow-pink-500/20">
+                    Spin Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let participants = ['Classmate A', 'Classmate B', 'Classmate C', 'Classmate D'];
+        let history = [];
+        let drawMode = 'single'; // 'single' or 'elimination'
+        let isSpinning = false;
+        let currentAngle = 0; // Current rotation angle in radians
+
+        // Vibrant color palette for wheel slices
+        const sliceColors = [
+            '#ec4899', // Pink 500
+            '#8b5cf6', // Violet 500
+            '#6366f1', // Indigo 500
+            '#3b82f6', // Blue 500
+            '#06b6d4', // Cyan 500
+            '#10b981', // Emerald 500
+            '#f59e0b', // Amber 500
+            '#f43f5e'  // Rose 500
+        ];
+
+        // Web Audio API synthesized sound generator
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTickSound() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.04);
+        }
+
+        function playWinSound() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const now = audioCtx.currentTime;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, index) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + index * 0.1);
+                gain.gain.setValueAtTime(0.15, now + index * 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.1 + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + index * 0.1);
+                osc.stop(now + index * 0.1 + 0.3);
+            });
+        }
+
+        // Initialize UI & Canvas on load
+        window.addEventListener('DOMContentLoaded', () => {
+            renderParticipants();
+            renderHistory();
+            drawWheel();
+        });
+
+        function setDrawMode(mode) {
+            drawMode = mode;
+            const btnSingle = document.getElementById('mode-single');
+            const btnElimination = document.getElementById('mode-elimination');
+            
+            if (mode === 'single') {
+                btnSingle.className = "px-3 py-1.5 text-xs font-semibold rounded-lg bg-pink-600 text-white transition shadow";
+                btnElimination.className = "px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition";
+            } else {
+                btnElimination.className = "px-3 py-1.5 text-xs font-semibold rounded-lg bg-pink-600 text-white transition shadow";
+                btnSingle.className = "px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition";
+            }
+        }
+
+        function renderParticipants() {
+            const listEl = document.getElementById('participants-list');
+            const countEl = document.getElementById('participant-count');
+            countEl.textContent = participants.length;
+
+            if (participants.length === 0) {
+                listEl.innerHTML = `<div class="text-xs text-slate-500 text-center py-6 italic">No participants in the pool. Add some below or load defaults!</div>`;
+                drawWheel();
+                return;
+            }
+
+            listEl.innerHTML = participants.map((name, index) => `
+                <div class="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 rounded-xl px-4 py-2.5 group hover:border-slate-700 transition">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 font-mono text-xs flex items-center justify-center">${index + 1}</span>
+                        <span class="text-sm font-medium text-white">${escapeHtml(name)}</span>
+                    </div>
+                    <button onclick="removeParticipant(${index})" class="text-slate-500 hover:text-red-400 transition p-1 opacity-60 group-hover:opacity-100">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            drawWheel();
+        }
+
+        function addParticipant(e) {
+            e.preventDefault();
+            const input = document.getElementById('new-participant-input');
+            const val = input.value.trim();
+            if (!val) return;
+            participants.push(val);
+            input.value = '';
+            renderParticipants();
+        }
+
+        function removeParticipant(index) {
+            participants.splice(index, 1);
+            renderParticipants();
+        }
+
+        function removeAllParticipants() {
+            participants = [];
+            renderParticipants();
+        }
+
+        function fillDefaults() {
+            participants = ['Classmate A', 'Classmate B', 'Classmate C', 'Classmate D'];
+            renderParticipants();
+        }
+
+        function resetToDefaults() {
+            fillDefaults();
+            history = [];
+            renderHistory();
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Canvas Wheel Rendering
+        function drawWheel(angleOffset = 0) {
+            const canvas = document.getElementById('wheel-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.min(centerX, centerY) - 10;
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (participants.length === 0) {
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '14px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('No Participants', centerX, centerY);
+                return;
+            }
+
+            const sliceAngle = (2 * Math.PI) / participants.length;
+
+            participants.forEach((name, i) => {
+                const startAngle = angleOffset + i * sliceAngle;
+                const endAngle = startAngle + sliceAngle;
+
+                // Draw Slice
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = sliceColors[i % sliceColors.length];
+                ctx.fill();
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw Text Label
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 13px Inter, sans-serif';
+                // Truncate name if too long
+                const displayName = name.length > 14 ? name.substring(0, 12) + '...' : name;
+                ctx.fillText(displayName, radius - 25, 5);
+                ctx.restore();
+            });
+
+            // Outer decorative ring
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        // Spinning Physics & Animation
+        function startSpin() {
+            if (isSpinning) return;
+            if (participants.length === 0) {
+                return;
+            }
+
+            isSpinning = true;
+            const spinBtn = document.getElementById('main-spin-btn');
+            const hubBtn = document.getElementById('spin-hub-btn');
+            spinBtn.disabled = true;
+            spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            hubBtn.disabled = true;
+
+            const speedSetting = document.getElementById('spin-speed').value;
+            let duration = 5000; // Normal 5s
+            if (speedSetting === 'fast') duration = 3000;
+            if (speedSetting === 'epic') duration = 8000;
+
+            const startTime = performance.now();
+            const startAngle = currentAngle;
+            
+            // Random target full rotations (between 5 and 10 full turns) plus random extra offset
+            const totalRotations = (Math.random() * 5 + 5) * 2 * Math.PI;
+            const randomExtra = Math.random() * 2 * Math.PI;
+            const targetAngle = startAngle + totalRotations + randomExtra;
+
+            let lastTickSlice = -1;
+
+            function animateSpin(currentTime) {
+                let elapsed = currentTime - startTime;
+                let progress = Math.min(elapsed / duration, 1);
+                
+                // Ease out cubic deceleration formula
+                let easeProgress = 1 - Math.pow(1 - progress, 3);
+                
+                currentAngle = startAngle + (targetAngle - startAngle) * easeProgress;
+                drawWheel(currentAngle);
+
+                // Check tick sound based on slice crossing top pointer (pointing at -PI/2 or 270 degrees)
+                const sliceAngle = (2 * Math.PI) / participants.length;
+                // Top pointer relative angle
+                const normalizedAngle = (2 * Math.PI - (currentAngle % (2 * Math.PI))) % (2 * Math.PI);
+                const currentSliceIndex = Math.floor(normalizedAngle / sliceAngle);
+
+                if (currentSliceIndex !== lastTickSlice) {
+                    playTickSound();
+                    lastTickSlice = currentSliceIndex;
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateSpin);
+                } else {
+                    // Spin finished! Determine exact winner
+                    isSpinning = false;
+                    spinBtn.disabled = false;
+                    spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    hubBtn.disabled = false;
+
+                    // Calculate winning index precisely
+                    const finalNormalized = (2 * Math.PI - (currentAngle % (2 * Math.PI))) % (2 * Math.PI);
+                    const winningIndex = Math.floor(finalNormalized / sliceAngle) % participants.length;
+                    const winner = participants[winningIndex];
+
+                    // Record history
+                    const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    history.unshift({ winner, time: timeString });
+                    renderHistory();
+
+                    // Handle elimination mode
+                    if (drawMode === 'elimination') {
+                        participants.splice(winningIndex, 1);
+                        renderParticipants();
+                    }
+
+                    playWinSound();
+                    triggerConfetti();
+                    showModal(winner);
+                }
+            }
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        function triggerConfetti() {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            if (history.length === 0) {
+                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-4 italic">No spins recorded yet. Give the wheel a spin!</div>`;
+                return;
+            }
+
+            container.innerHTML = history.map((item, idx) => `
+                <div class="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 rounded-xl px-3.5 py-2">
+                    <div class="flex items-center space-x-2.5">
+                        <span class="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">#${history.length - idx}</span>
+                        <span class="text-sm font-semibold text-white">${escapeHtml(item.winner)}</span>
+                    </div>
+                    <span class="text-[11px] text-slate-400 font-mono">${item.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            history = [];
+            renderHistory();
+        }
+
+        // Modal Controls
+        function showModal(winnerName) {
+            document.getElementById('modal-winner-name').textContent = winnerName;
+            const modal = document.getElementById('winner-modal');
+            const content = document.getElementById('winner-modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('winner-modal');
+            const content = document.getElementById('winner-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+        }
+
+        function closeModalAndSpin() {
+            closeModal();
+            setTimeout(() => {
+                startSpin();
+            }, 300);
+        }
+    </script>
+</body>
+</html>
